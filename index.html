@@ -71,8 +71,16 @@
     .filter-bar {
       background: var(--surface);
       border-bottom: 0.5px solid var(--border);
-      padding: 0.6rem 1.25rem;
+      padding: 0.5rem 1.25rem;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .filter-row {
       display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-label {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      white-space: nowrap; margin-right: 2px;
     }
     .filter-btn {
       font-size: 12px; padding: 4px 12px; border-radius: 20px;
@@ -83,7 +91,11 @@
     .filter-btn.active, .filter-btn:hover {
       background: var(--brand); color: #fff; border-color: var(--brand);
     }
-    .stats-text { margin-left: auto; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    /* priority-specific active colours */
+    .filter-btn.p-high.active, .filter-btn.p-high:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
+    .filter-btn.p-med.active,  .filter-btn.p-med:hover  { background: #e67e22; border-color: #e67e22; color: #fff; }
+    .filter-btn.p-low.active,  .filter-btn.p-low:hover  { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .stats-text { font-size: 11px; color: var(--text-muted); white-space: nowrap; margin-left: auto; }
 
     /* ── MAIN GRID ── */
     .main { padding: 1rem; }
@@ -284,12 +296,22 @@
   </button>
 </header>
 
-<!-- Filter bar -->
+
 <div class="filter-bar">
-  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
-  <button class="filter-btn" onclick="setFilter('open',this)">Open</button>
-  <button class="filter-btn" onclick="setFilter('done',this)">Done</button>
-  <span class="stats-text" id="stats-text"></span>
+  <div class="filter-row">
+    <span class="filter-label">Status</span>
+    <button class="filter-btn active" onclick="setStatus('all',this)">All</button>
+    <button class="filter-btn" onclick="setStatus('open',this)">Open</button>
+    <button class="filter-btn" onclick="setStatus('done',this)">Done</button>
+    <span class="stats-text" id="stats-text"></span>
+  </div>
+  <div class="filter-row">
+    <span class="filter-label">Priority</span>
+    <button class="filter-btn active" onclick="setPriority('all',this)">All</button>
+    <button class="filter-btn p-high"  onclick="setPriority('high',this)">&#9679; High</button>
+    <button class="filter-btn p-med"   onclick="setPriority('med',this)">&#9679; Medium</button>
+    <button class="filter-btn p-low"   onclick="setPriority('low',this)">&#9679; Low</button>
+  </div>
 </div>
 
 <!-- Grid -->
@@ -365,8 +387,9 @@
   /* ═══════════════════════════ INIT ════════════ */
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   let tasks = [];
-  let filterMode = 'all';
-  let editingId  = null;
+  let filterMode    = 'all';
+  let priorityMode  = 'all';
+  let editingId     = null;
   let preselectedCat = null;
 
   /* populate category select */
@@ -471,9 +494,16 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   /* ═══════════════════════════ FILTER ══════════ */
-  function setFilter(mode, btn) {
+  function setStatus(mode, btn) {
     filterMode = mode;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.filter-row:first-child .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  function setPriority(mode, btn) {
+    priorityMode = mode;
+    document.querySelectorAll('.filter-row:last-child .filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     render();
   }
@@ -485,10 +515,11 @@
     document.getElementById('header-meta').textContent = open + ' open · ' + total + ' total';
     document.getElementById('stats-text').textContent  = open + ' open, ' + (total - open) + ' done';
 
-    const visible = tasks.filter(t =>
-      filterMode === 'all'  ? true :
-      filterMode === 'open' ? !t.done : t.done
-    );
+    const visible = tasks.filter(t => {
+      const statusOk   = filterMode   === 'all' ? true : filterMode === 'open' ? !t.done : t.done;
+      const priorityOk = priorityMode === 'all' ? true : t.priority === priorityMode;
+      return statusOk && priorityOk;
+    });
 
     const grid = document.getElementById('grid');
     grid.innerHTML = CATS.map(cat => {
