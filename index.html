@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adrian's To Do list</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ── CONFIG: paste your Supabase credentials below ── */
+    /* (also set in the <script> at the bottom)           */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand:       #1e1e6e;
+      --brand-dark:  #16165a;
+      --brand-light: #2e2e8e;
+      --brand-muted: #e8e8f8;
+      --ink:         #0a0a09;
+      --surface:     #ffffff;
+      --surface2:    #f5f5fa;
+      --border:      rgba(30,30,110,0.18);
+      --text-muted:  #5a5a8a;
+      --radius:      8px;
+      --radius-lg:   12px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface2);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--brand);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .logo-dot {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--brand);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-dot svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .header-text h1 { font-size: 16px; font-weight: 600; color: var(--ink); }
+    .header-text p  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .header-add {
+      margin-left: auto;
+      background: var(--brand); color: #fff;
+      border: none; border-radius: 20px;
+      padding: 7px 14px; font-size: 13px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+    }
+    .header-add:hover { background: var(--brand-dark); }
+    .header-add svg { width: 14px; height: 14px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      background: var(--surface);
+      border-bottom: 0.5px solid var(--border);
+      padding: 0.6rem 1.25rem;
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-btn {
+      font-size: 12px; padding: 4px 12px; border-radius: 20px;
+      border: 0.5px solid var(--border);
+      background: var(--surface2); color: var(--text-muted);
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: var(--brand); color: #fff; border-color: var(--brand);
+    }
+    .stats-text { margin-left: auto; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+    /* ── MAIN GRID ── */
+    .main { padding: 1rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    /* ── COLUMN ── */
+    .column {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .col-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid var(--brand-muted);
+    }
+    .col-title-wrap { display: flex; align-items: center; gap: 7px; }
+    .col-icon { color: var(--brand); flex-shrink: 0; }
+    .col-icon svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .col-title { font-size: 12px; font-weight: 500; color: var(--ink); }
+    .col-count {
+      font-size: 11px; background: var(--brand); color: #fff;
+      border-radius: 10px; padding: 1px 8px; font-weight: 500;
+    }
+
+    /* ── TASK CARD ── */
+    .task-card {
+      background: var(--surface2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 10px;
+      display: flex; align-items: flex-start; gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .task-card:hover { border-color: var(--brand); }
+    .task-card.done { opacity: 0.45; }
+    .task-card.done .task-text { text-decoration: line-through; }
+
+    .task-check {
+      width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; margin-top: 1px;
+      border: 1.5px solid var(--brand); background: transparent;
+      cursor: pointer; appearance: none; -webkit-appearance: none;
+      position: relative; transition: background 0.15s;
+    }
+    .task-check:checked { background: var(--brand); }
+    .task-check:checked::after {
+      content: '';
+      position: absolute; top: 1px; left: 3px;
+      width: 7px; height: 4px;
+      border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+      transform: rotate(-45deg);
+    }
+
+    .task-body { flex: 1; min-width: 0; }
+    .task-text { font-size: 12px; color: var(--ink); line-height: 1.45; word-break: break-word; }
+
+    .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; padding: 2px;
+      color: var(--text-muted); border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+      display: flex; align-items: center;
+    }
+    .icon-btn:hover { color: var(--brand); background: var(--brand-muted); }
+    .icon-btn.del:hover { color: #c0392b; background: #fdecea; }
+    .icon-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .priority-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px;
+    }
+    .p-high { background: #c0392b; }
+    .p-med  { background: #e67e22; }
+    .p-low  { background: var(--brand); }
+
+    /* ── EMPTY STATE ── */
+    .empty-col {
+      text-align: center; padding: 20px 8px;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .empty-col svg { width: 22px; height: 22px; stroke: var(--brand-muted); fill: none; stroke-width: 1.5; stroke-linecap: round; margin-bottom: 6px; display: block; margin-inline: auto; }
+
+    /* ── ADD ROW ── */
+    .add-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 8px; border-radius: var(--radius);
+      border: 0.5px dashed var(--border);
+      color: var(--text-muted); font-size: 11px; cursor: pointer;
+      background: none; width: 100%; text-align: left; font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .add-row:hover { border-color: var(--brand); color: var(--brand); }
+    .add-row svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+
+    /* ── MODAL ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,10,9,0.55);
+      align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface); border-radius: var(--radius-lg);
+      padding: 1.5rem; width: 100%; max-width: 400px;
+      border: 0.5px solid var(--border);
+    }
+    .modal h2 { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 1.1rem; }
+    .form-field { margin-bottom: 12px; }
+    .form-field label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+    .form-field input,
+    .form-field select,
+    .form-field textarea {
+      width: 100%; font-size: 13px; padding: 8px 10px;
+      border: 0.5px solid var(--border); border-radius: var(--radius);
+      background: var(--surface2); color: var(--ink); outline: none;
+      font-family: inherit; transition: border-color 0.15s;
+    }
+    .form-field input:focus,
+    .form-field select:focus,
+    .form-field textarea:focus { border-color: var(--brand); }
+    .form-field textarea { resize: vertical; min-height: 70px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; }
+    .btn-cancel {
+      font-size: 13px; padding: 7px 16px; border-radius: var(--radius);
+      border: 0.5px solid var(--border); background: var(--surface2);
+      color: var(--text-muted); cursor: pointer; font-family: inherit;
+    }
+    .btn-save {
+      font-size: 13px; padding: 7px 18px; border-radius: var(--radius);
+      border: none; background: var(--brand); color: #fff;
+      cursor: pointer; font-family: inherit; font-weight: 500;
+    }
+    .btn-save:hover { background: var(--brand-dark); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: #fff; font-size: 13px;
+      padding: 8px 18px; border-radius: 20px; z-index: 300;
+      opacity: 0; transition: opacity 0.2s; pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── LOADING ── */
+    .loading-overlay {
+      position: fixed; inset: 0; background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 400; font-size: 14px; color: var(--text-muted);
+      flex-direction: column; gap: 12px;
+    }
+    .spinner {
+      width: 28px; height: 28px; border: 3px solid var(--brand-muted);
+      border-top-color: var(--brand); border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay.hidden { display: none; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 500px) {
+      .header { padding: 0.85rem 1rem; }
+      .header-text h1 { font-size: 14px; }
+      .header-add span { display: none; }
+      .filter-bar { padding: 0.5rem 1rem; }
+      .main { padding: 0.75rem; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <span>Loading tasks…</span>
+</div>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo-dot">
+    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <div class="header-text">
+    <h1>Adrian's To Do list</h1>
+    <p id="header-meta">Loading…</p>
+  </div>
+  <button class="header-add" onclick="openModal()">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span>Add task</span>
+  </button>
+</header>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" onclick="setFilter('open',this)">Open</button>
+  <button class="filter-btn" onclick="setFilter('done',this)">Done</button>
+  <span class="stats-text" id="stats-text"></span>
+</div>
+
+<!-- Grid -->
+<main class="main">
+  <div class="grid" id="grid"></div>
+</main>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h2 id="modal-title">New task</h2>
+    <div class="form-field">
+      <label for="f-text">Description</label>
+      <textarea id="f-text" placeholder="What needs to be done?"></textarea>
+    </div>
+    <div class="form-field">
+      <label for="f-cat">Category</label>
+      <select id="f-cat"></select>
+    </div>
+    <div class="form-field">
+      <label for="f-priority">Priority</label>
+      <select id="f-priority">
+        <option value="high">High</option>
+        <option value="med" selected>Medium</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="btn-save" onclick="saveTask()">Add task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ═══════════════════════════════════════════════
+     CONFIGURATION — replace with your values
+     Project URL  : Supabase dashboard → Settings → API → Project URL
+     Anon key     : Supabase dashboard → Settings → API → anon public
+  ═══════════════════════════════════════════════ */
+  const SUPABASE_URL  = 'https://lrgmnugjidssuaacumjf.supabase.co';
+  const SUPABASE_ANON = 'sb_publishable_yIOnSAqTD8_-sjRKBmyNqA_05KS7Cuv';
+
+  /* ═══════════════════════════ CATEGORIES ════ */
+  const CATS = [
+    { id:'ahead',     label:'To do ahead of close',  icon:'calendar' },
+    { id:'close',     label:'Close-related tasks',    icon:'lock'     },
+    { id:'payroll',   label:'Payroll BU',             icon:'cash'     },
+    { id:'offers',    label:'Offers BU',              icon:'tag'      },
+    { id:'general',   label:'General tasks',          icon:'list'     },
+    { id:'tabs',      label:'Tabs implementation',    icon:'table'    },
+    { id:'cardrecon', label:'Card Recon tasks',       icon:'card'     },
+    { id:'dr',        label:'Corrections to DR file', icon:'pencil'   },
+  ];
+
+  const ICONS = {
+    calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    lock:     '<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
+    cash:     '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>',
+    tag:      '<svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+    list:     '<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+    table:    '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+    card:     '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+    pencil:   '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    plus:     '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    edit:     '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    trash:    '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>',
+  };
+
+  /* ═══════════════════════════ INIT ════════════ */
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  let tasks = [];
+  let filterMode = 'all';
+  let editingId  = null;
+  let preselectedCat = null;
+
+  /* populate category select */
+  const catSel = document.getElementById('f-cat');
+  CATS.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.label;
+    catSel.appendChild(o);
+  });
+
+  async function init() {
+    const { data, error } = await sb.from('tasks').select('*').order('created_at', { ascending: true });
+    if (error) { showToast('Could not load tasks'); console.error(error); }
+    else tasks = data || [];
+    document.getElementById('loading').classList.add('hidden');
+    render();
+  }
+
+  /* ═══════════════════════════ CRUD ════════════ */
+  async function saveTask() {
+    const text     = document.getElementById('f-text').value.trim();
+    const category = document.getElementById('f-cat').value;
+    const priority = document.getElementById('f-priority').value;
+    if (!text) { document.getElementById('f-text').focus(); return; }
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+
+    if (editingId) {
+      const { data, error } = await sb.from('tasks')
+        .update({ text, category, priority })
+        .eq('id', editingId)
+        .select().single();
+      if (error) { showToast('Error saving task'); console.error(error); }
+      else {
+        const idx = tasks.findIndex(t => t.id === editingId);
+        if (idx !== -1) tasks[idx] = data;
+        showToast('Task updated');
+      }
+    } else {
+      const { data, error } = await sb.from('tasks')
+        .insert({ text, category, priority })
+        .select().single();
+      if (error) { showToast('Error adding task'); console.error(error); }
+      else { tasks.push(data); showToast('Task added'); }
+    }
+
+    btn.disabled = false;
+    closeModal();
+    render();
+  }
+
+  async function toggleDone(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const { data, error } = await sb.from('tasks')
+      .update({ done: !task.done })
+      .eq('id', id).select().single();
+    if (!error) {
+      const idx = tasks.findIndex(t => t.id === id);
+      if (idx !== -1) tasks[idx] = data;
+      render();
+    }
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    const { error } = await sb.from('tasks').delete().eq('id', id);
+    if (error) { showToast('Error deleting task'); console.error(error); }
+    else { tasks = tasks.filter(t => t.id !== id); showToast('Task deleted'); render(); }
+  }
+
+  /* ═══════════════════════════ MODAL ═══════════ */
+  function openModal(catId, taskId) {
+    editingId = taskId || null;
+    const modal = document.getElementById('modal-backdrop');
+    modal.classList.add('open');
+    document.getElementById('modal-title').textContent = taskId ? 'Edit task' : 'New task';
+    document.getElementById('btn-save').textContent    = taskId ? 'Save changes' : 'Add task';
+
+    if (taskId) {
+      const t = tasks.find(t => t.id === taskId);
+      document.getElementById('f-text').value     = t.text;
+      document.getElementById('f-cat').value      = t.category;
+      document.getElementById('f-priority').value = t.priority;
+    } else {
+      document.getElementById('f-text').value     = '';
+      document.getElementById('f-cat').value      = catId || CATS[0].id;
+      document.getElementById('f-priority').value = 'med';
+    }
+    setTimeout(() => document.getElementById('f-text').focus(), 50);
+  }
+
+  function closeModal() {
+    document.getElementById('modal-backdrop').classList.remove('open');
+    editingId = null;
+  }
+
+  document.getElementById('modal-backdrop').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ═══════════════════════════ FILTER ══════════ */
+  function setFilter(mode, btn) {
+    filterMode = mode;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  /* ═══════════════════════════ RENDER ══════════ */
+  function render() {
+    const open  = tasks.filter(t => !t.done).length;
+    const total = tasks.length;
+    document.getElementById('header-meta').textContent = open + ' open · ' + total + ' total';
+    document.getElementById('stats-text').textContent  = open + ' open, ' + (total - open) + ' done';
+
+    const visible = tasks.filter(t =>
+      filterMode === 'all'  ? true :
+      filterMode === 'open' ? !t.done : t.done
+    );
+
+    const grid = document.getElementById('grid');
+    grid.innerHTML = CATS.map(cat => {
+      const catTasks = visible.filter(t => t.category === cat.id);
+      const catTotal = tasks.filter(t => t.category === cat.id).length;
+
+      const cardsHtml = catTasks.length === 0
+        ? `<div class="empty-col">
+            ${ICONS[cat.icon]}
+            No tasks yet
+           </div>`
+        : catTasks.map(t => `
+          <div class="task-card ${t.done ? 'done' : ''}">
+            <input type="checkbox" class="task-check" ${t.done ? 'checked' : ''}
+              onchange="toggleDone('${t.id}')" aria-label="Mark done" />
+            <div class="task-body">
+              <span class="task-text">${escHtml(t.text)}</span>
+            </div>
+            <div class="priority-dot p-${t.priority}" title="${t.priority} priority"></div>
+            <div class="task-actions">
+              <button class="icon-btn" onclick="openModal('${cat.id}','${t.id}')" title="Edit" aria-label="Edit task">
+                ${ICONS.edit}
+              </button>
+              <button class="icon-btn del" onclick="deleteTask('${t.id}')" title="Delete" aria-label="Delete task">
+                ${ICONS.trash}
+              </button>
+            </div>
+          </div>`).join('');
+
+      return `
+        <div class="column">
+          <div class="col-header">
+            <div class="col-title-wrap">
+              <span class="col-icon">${ICONS[cat.icon]}</span>
+              <span class="col-title">${cat.label}</span>
+            </div>
+            <span class="col-count">${catTotal}</span>
+          </div>
+          ${cardsHtml}
+          <button class="add-row" onclick="openModal('${cat.id}')">
+            ${ICONS.plus} Add task
+          </button>
+        </div>`;
+    }).join('');
+  }
+
+  /* ═══════════════════════════ HELPERS ═════════ */
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  init();
+</script>
+</body>
+</html>
