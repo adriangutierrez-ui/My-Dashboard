@@ -192,6 +192,36 @@
     .add-row:hover { border-color: var(--brand); color: var(--brand); }
     .add-row svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; }
 
+    /* ── LINK HELPER ── */
+    .link-helper {
+      display: none; background: var(--brand-muted);
+      border: 0.5px solid var(--border); border-radius: var(--radius);
+      padding: 10px; margin-top: 6px; gap: 6px;
+      flex-direction: column;
+    }
+    .link-helper.open { display: flex; }
+    .link-helper-row { display: flex; gap: 6px; }
+    .link-helper input {
+      flex: 1; font-size: 12px; padding: 6px 8px;
+      border: 0.5px solid var(--border); border-radius: var(--radius);
+      background: var(--surface); color: var(--ink); font-family: inherit; outline: none;
+    }
+    .link-helper input:focus { border-color: var(--brand); }
+    .link-insert-btn {
+      font-size: 12px; padding: 6px 12px; border-radius: var(--radius);
+      background: var(--brand); color: #fff; border: none;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .link-insert-btn:hover { background: var(--brand-dark); }
+    .link-toggle-btn {
+      font-size: 11px; padding: 3px 10px; border-radius: 20px;
+      border: 0.5px solid var(--border); background: var(--surface2);
+      color: var(--text-muted); cursor: pointer; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;
+    }
+    .link-toggle-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .link-toggle-btn svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
     /* ── MODAL ── */
     .modal-backdrop {
       display: none; position: fixed; inset: 0; z-index: 200;
@@ -323,6 +353,17 @@
     <div class="form-field">
       <label for="f-text">Description</label>
       <textarea id="f-text" placeholder="What needs to be done?"></textarea>
+      <button type="button" class="link-toggle-btn" onclick="toggleLinkHelper()">
+        <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        Add hyperlink
+      </button>
+      <div class="link-helper" id="link-helper">
+        <div class="link-helper-row">
+          <input id="lh-label" placeholder="Link text (e.g. Click here)" />
+          <input id="lh-url"   placeholder="URL (https://...)" />
+          <button class="link-insert-btn" onclick="insertLink()">Insert</button>
+        </div>
+      </div>
     </div>
     <div class="form-field">
       <label for="f-cat">Category</label>
@@ -480,8 +521,32 @@
     setTimeout(() => document.getElementById('f-text').focus(), 50);
   }
 
+  function toggleLinkHelper() {
+    document.getElementById('link-helper').classList.toggle('open');
+    document.getElementById('lh-label').focus();
+  }
+
+  function insertLink() {
+    const label = document.getElementById('lh-label').value.trim();
+    const url   = document.getElementById('lh-url').value.trim();
+    if (!url) { document.getElementById('lh-url').focus(); return; }
+    const textarea = document.getElementById('f-text');
+    const insert = label ? '[' + label + '](' + url + ')' : url;
+    const pos = textarea.selectionStart;
+    const before = textarea.value.substring(0, pos);
+    const after  = textarea.value.substring(textarea.selectionEnd);
+    textarea.value = before + (before && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '') + insert + (after && !after.startsWith(' ') ? ' ' : '') + after;
+    document.getElementById('lh-label').value = '';
+    document.getElementById('lh-url').value   = '';
+    document.getElementById('link-helper').classList.remove('open');
+    textarea.focus();
+  }
+
   function closeModal() {
     document.getElementById('modal-backdrop').classList.remove('open');
+    document.getElementById('link-helper').classList.remove('open');
+    document.getElementById('lh-label').value = '';
+    document.getElementById('lh-url').value   = '';
     editingId = null;
   }
 
@@ -533,7 +598,7 @@
             <input type="checkbox" class="task-check" ${t.done ? 'checked' : ''}
               onchange="toggleDone('${t.id}')" aria-label="Mark done" />
             <div class="task-body">
-              <span class="task-text">${escHtml(t.text)}</span>
+              <span class="task-text">${linkify(t.text)}</span>
             </div>
             <div class="priority-dot p-${t.priority}" title="${t.priority} priority"></div>
             <div class="task-actions">
@@ -566,6 +631,20 @@
   /* ═══════════════════════════ HELPERS ═════════ */
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function linkify(str) {
+    const escaped = escHtml(str);
+    // First render [label](url) markdown links
+    const withMarkdown = escaped.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
+    );
+    // Then auto-link bare URLs (not already inside an href)
+    return withMarkdown.replace(
+      /(?<!href=")(https?:\/\/[^\s&<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
+    );
   }
 
   let toastTimer;
