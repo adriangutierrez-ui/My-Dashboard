@@ -91,10 +91,7 @@
     .filter-btn.active, .filter-btn:hover {
       background: var(--brand); color: #fff; border-color: var(--brand);
     }
-    /* priority-specific active colours */
-    .filter-btn.p-high.active, .filter-btn.p-high:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
-    .filter-btn.p-med.active,  .filter-btn.p-med:hover  { background: #e67e22; border-color: #e67e22; color: #fff; }
-    .filter-btn.p-low.active,  .filter-btn.p-low:hover  { background: var(--brand); border-color: var(--brand); color: #fff; }
+
     .stats-text { font-size: 11px; color: var(--text-muted); white-space: nowrap; margin-left: auto; }
 
     /* ── MAIN GRID ── */
@@ -308,9 +305,9 @@
   <div class="filter-row">
     <span class="filter-label">Priority</span>
     <button class="filter-btn active" onclick="setPriority('all',this)">All</button>
-    <button class="filter-btn p-high"  onclick="setPriority('high',this)">&#9679; High</button>
-    <button class="filter-btn p-med"   onclick="setPriority('med',this)">&#9679; Medium</button>
-    <button class="filter-btn p-low"   onclick="setPriority('low',this)">&#9679; Low</button>
+    <button class="filter-btn"  onclick="setPriority('high',this)">High</button>
+    <button class="filter-btn"   onclick="setPriority('med',this)">Medium</button>
+    <button class="filter-btn"   onclick="setPriority('low',this)">Low</button>
   </div>
 </div>
 
