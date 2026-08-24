@@ -671,21 +671,6 @@
       return statusOk && priorityOk && searchOk;
     });
 
-    function highlight(str) {
-      if (!searchQuery) return linkify(str);
-      const escaped = escHtml(str);
-      const re = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-      const highlighted = escaped.replace(re, '<mark class="search-match">$1</mark>');
-      // still linkify bare URLs and markdown links
-      return highlighted.replace(
-        /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-      ).replace(
-        /(?<!href=")(https?:\/\/[^\s&<]+)/g,
-        '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-      );
-    }
-
     const grid = document.getElementById('grid');
     grid.innerHTML = CATS.map(cat => {
       const catTasks = visible.filter(t => t.category === cat.id);
@@ -734,6 +719,18 @@
   /* ═══════════════════════════ HELPERS ═════════ */
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function highlight(str) {
+    if (!searchQuery) return linkify(str);
+    const escaped = escHtml(str);
+    const re = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\]/g, '\$&') + ')', 'gi');
+    const highlighted = escaped.replace(re, '<mark class="search-match">$1</mark>');
+    return highlighted
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>')
+      .replace(/(?<!href=")(https?:\/\/[^\s&<]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>');
   }
 
   function linkify(str) {
