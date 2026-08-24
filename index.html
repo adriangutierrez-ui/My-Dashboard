@@ -721,6 +721,18 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function linkify(str) {
+    const escaped = escHtml(str);
+    const withMarkdown = escaped.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
+    );
+    return withMarkdown.replace(
+      /(https?:\/\/[^\s&<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
+    );
+  }
+
   function highlight(str) {
     if (!searchQuery) return linkify(str);
     const escaped = escHtml(str);
@@ -732,20 +744,6 @@
         '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>')
       .replace(/(https?:\/\/[^\s&<]+)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>');
-  }
-
-  function linkify(str) {
-    const escaped = escHtml(str);
-    // First render [label](url) markdown links
-    const withMarkdown = escaped.replace(
-      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-    );
-    // Then auto-link bare URLs (not already inside an href)
-    return withMarkdown.replace(
-      /(?<!href=")(https?:\/\/[^\s&<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-    );
   }
 
   let toastTimer;
