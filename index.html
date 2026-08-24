@@ -104,6 +104,38 @@
     .clear-done-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); background: var(--surface2); }
     .clear-done-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
+    /* ── SEARCH BAR ── */
+    .search-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0.4rem 0;
+    }
+    .search-wrap {
+      position: relative; flex: 1; max-width: 380px;
+    }
+    .search-wrap svg {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      width: 13px; height: 13px; stroke: var(--text-muted); fill: none;
+      stroke-width: 2; stroke-linecap: round; pointer-events: none;
+    }
+    .search-input {
+      width: 100%; font-size: 12px; padding: 6px 30px 6px 28px;
+      border: 0.5px solid var(--border); border-radius: 20px;
+      background: var(--surface2); color: var(--ink);
+      font-family: inherit; outline: none; transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--brand); background: var(--surface); }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-clear {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; padding: 2px;
+      color: var(--text-muted); display: none; align-items: center;
+      border-radius: 50%; transition: color 0.15s;
+    }
+    .search-clear:hover { color: var(--ink); }
+    .search-clear svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+    .search-clear.visible { display: flex; }
+    .search-match { background: #fff3a3; border-radius: 2px; }
+
     /* ── MAIN GRID ── */
     .main { padding: 1rem; }
     .grid {
@@ -353,6 +385,17 @@
     <button class="filter-btn"   onclick="setPriority('med',this)">Medium</button>
     <button class="filter-btn"   onclick="setPriority('low',this)">Low</button>
   </div>
+  <div class="search-row">
+    <span class="filter-label">Search</span>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="search-input" type="text" placeholder="Search tasks…"
+        oninput="onSearch(this.value)" />
+      <button class="search-clear" id="search-clear" onclick="clearSearch()" aria-label="Clear search">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Grid -->
@@ -597,6 +640,20 @@
     render();
   }
 
+  function onSearch(val) {
+    searchQuery = val.trim().toLowerCase();
+    const clearBtn = document.getElementById('search-clear');
+    clearBtn.classList.toggle('visible', searchQuery.length > 0);
+    render();
+  }
+
+  function clearSearch() {
+    searchQuery = '';
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-clear').classList.remove('visible');
+    render();
+  }
+
   /* ═══════════════════════════ RENDER ══════════ */
   function render() {
     const open  = tasks.filter(t => !t.done).length;
@@ -610,8 +667,24 @@
     const visible = tasks.filter(t => {
       const statusOk   = filterMode   === 'all' ? true : filterMode === 'open' ? !t.done : t.done;
       const priorityOk = priorityMode === 'all' ? true : t.priority === priorityMode;
-      return statusOk && priorityOk;
+      const searchOk   = searchQuery  === ''    ? true : t.text.toLowerCase().includes(searchQuery);
+      return statusOk && priorityOk && searchOk;
     });
+
+    function highlight(str) {
+      if (!searchQuery) return linkify(str);
+      const escaped = escHtml(str);
+      const re = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+      const highlighted = escaped.replace(re, '<mark class="search-match">$1</mark>');
+      // still linkify bare URLs and markdown links
+      return highlighted.replace(
+        /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
+      ).replace(
+        /(?<!href=")(https?:\/\/[^\s&<]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
+      );
+    }
 
     const grid = document.getElementById('grid');
     grid.innerHTML = CATS.map(cat => {
@@ -628,7 +701,7 @@
             <input type="checkbox" class="task-check" ${t.done ? 'checked' : ''}
               onchange="toggleDone('${t.id}')" aria-label="Mark done" />
             <div class="task-body">
-              <span class="task-text">${linkify(t.text)}</span>
+              <span class="task-text">${highlight(t.text)}</span>
             </div>
             <div class="priority-dot p-${t.priority}" title="${t.priority} priority"></div>
             <div class="task-actions">
