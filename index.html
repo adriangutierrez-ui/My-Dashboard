@@ -724,12 +724,13 @@
   function highlight(str) {
     if (!searchQuery) return linkify(str);
     const escaped = escHtml(str);
-    const re = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\]/g, '\$&') + ')', 'gi');
+    const safeQuery = searchQuery.replace(/[-[\]/{}()*+?.\^$|]/g, '\$&');
+    const re = new RegExp('(' + safeQuery + ')', 'gi');
     const highlighted = escaped.replace(re, '<mark class="search-match">$1</mark>');
     return highlighted
       .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
         '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>')
-      .replace(/(?<!href=")(https?:\/\/[^\s&<]+)/g,
+      .replace(/(https?:\/\/[^\s&<]+)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>');
   }
 
