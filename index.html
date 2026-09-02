@@ -412,35 +412,44 @@
   }
 
   function linkify(str) {
-    const escaped = escHtml(str);
-    // Markdown-style links first: [label](url)
-    const step1 = escaped.replace(
-      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-    );
-    // Then bare URLs
-    return step1.replace(
-      /(https?:\/\/[^\s&<"]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-    );
+    // Tokenise raw string BEFORE escaping so & in URLs are preserved
+    const tokens = [];
+    const combined = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+)/g;
+    let last = 0, m;
+    while ((m = combined.exec(str)) !== null) {
+      if (m.index > last) tokens.push({ type:'text', val: str.slice(last, m.index) });
+      if (m[1] && m[2])  tokens.push({ type:'mdlink', label: m[1], url: m[2] });
+      else               tokens.push({ type:'url', url: m[0] });
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) tokens.push({ type:'text', val: str.slice(last) });
+    return tokens.map(t => {
+      if (t.type === 'text')   return escHtml(t.val);
+      if (t.type === 'mdlink') return '<a href="' + t.url + '" target="_blank" rel="noopener noreferrer" class="task-link">' + escHtml(t.label) + '</a>';
+      return '<a href="' + t.url + '" target="_blank" rel="noopener noreferrer" class="task-link">' + escHtml(t.url) + '</a>';
+    }).join('');
   }
 
   function highlight(str) {
     if (!searchQuery) return linkify(str);
-    const escaped = escHtml(str);
-    // Escape special regex chars in the query
     const safe = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp('(' + safe + ')', 'gi');
-    const marked = escaped.replace(re, '<mark class="search-match">$1</mark>');
-    // Apply markdown links and bare URL linking after highlighting
-    const step1 = marked.replace(
-      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-    );
-    return step1.replace(
-      /(https?:\/\/[^\s&<"]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="task-link">$1</a>'
-    );
+    const re   = new RegExp('(' + safe + ')', 'gi');
+    // Tokenise raw string first so URLs are not broken, highlight only text tokens
+    const tokens = [];
+    const combined = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+)/g;
+    let last = 0, m;
+    while ((m = combined.exec(str)) !== null) {
+      if (m.index > last) tokens.push({ type:'text', val: str.slice(last, m.index) });
+      if (m[1] && m[2])  tokens.push({ type:'mdlink', label: m[1], url: m[2] });
+      else               tokens.push({ type:'url', url: m[0] });
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) tokens.push({ type:'text', val: str.slice(last) });
+    return tokens.map(t => {
+      if (t.type === 'text')   return escHtml(t.val).replace(re, '<mark class="search-match">$1</mark>');
+      if (t.type === 'mdlink') return '<a href="' + t.url + '" target="_blank" rel="noopener noreferrer" class="task-link">' + escHtml(t.label) + '</a>';
+      return '<a href="' + t.url + '" target="_blank" rel="noopener noreferrer" class="task-link">' + escHtml(t.url) + '</a>';
+    }).join('');
   }
 
   let toastTimer;
